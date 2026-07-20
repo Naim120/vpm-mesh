@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocScraper & GDrive Uploader</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Main Style Sheet -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-cloud-arrow-up brand-icon"></i>
+                <span class="brand-name">DocScraper</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="files">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span>Log Files</span>
+                </button>
+                <button class="nav-item" data-tab="settings">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="server-status">
+                    <span class="status-dot status-idle" id="server-status-dot"></span>
+                    <span class="status-text" id="server-status-text">Status: Checking...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="content-header">
+                <div class="header-title-wrapper">
+                    <h1 id="page-title">Dashboard</h1>
+                    <p class="subtitle" id="page-subtitle">Control and monitor your background scraper</p>
+                </div>
+                <div class="user-actions">
+                    <div class="quick-status-chip">
+                        <span id="quick-progress">0/0 Processed</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- TAB 1: Dashboard -->
+            <section class="tab-content active" id="tab-dashboard">
+                <!-- Controls Glassmorphism Card -->
+                <div class="card control-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-sliders"></i> Scraping Controller</h2>
+                        <div class="control-actions">
+                            <span class="range-badge" id="current-range-badge">Range: Not set</span>
+                        </div>
+                    </div>
+                    <div class="control-grid">
+                        <div class="input-group">
+                            <label for="start-number">Start Number</label>
+                            <input type="number" id="start-number" placeholder="130623">
+                        </div>
+                        <div class="input-group">
+                            <label for="end-number">End Number</label>
+                            <input type="number" id="end-number" placeholder="130700">
+                        </div>
+                        <div class="button-group">
+                            <button id="btn-start" class="btn btn-primary">
+                                <i class="fa-solid fa-play"></i> Start New Run
+                            </button>
+                            <button id="btn-resume" class="btn btn-secondary">
+                                <i class="fa-solid fa-forward-step"></i> Resume
+                            </button>
+                            <button id="btn-stop" class="btn btn-danger" disabled>
+                                <i class="fa-solid fa-pause"></i> Stop / Pause
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress-container">
+                        <div class="progress-info">
+                            <span>Scraping Progress</span>
+                            <span id="progress-percent">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progress-bar-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-details">
+                            <span id="progress-nums">Processing: --</span>
+                            <span id="progress-eta">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon icon-blue"><i class="fa-solid fa-globe"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Total Requests</span>
+                            <h3 class="stat-value" id="stat-total-requests">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-green"><i class="fa-solid fa-circle-check"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Success Requests</span>
+                            <h3 class="stat-value" id="stat-success-count">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-yellow"><i class="fa-solid fa-file-arrow-down"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Files Uploaded</span>
+                            <h3 class="stat-value" id="stat-files-uploaded">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-purple"><i class="fa-solid fa-file-circle-xmark"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Not Uploaded</span>
+                            <h3 class="stat-value" id="stat-not-uploaded">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-red"><i class="fa-solid fa-circle-exclamation"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">Failed Requests</span>
+                            <h3 class="stat-value" id="stat-failed-count">0</h3>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-grey"><i class="fa-solid fa-inbox"></i></div>
+                        <div class="stat-info">
+                            <span class="stat-label">No Data Found</span>
+                            <h3 class="stat-value" id="stat-no-data-count">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Console Terminal Log -->
+                <div class="card terminal-card">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-terminal"></i> Console Logs</h2>
+                        <div class="terminal-actions">
+                            <label class="toggle-container">
+                                <input type="checkbox" id="terminal-autoscroll" checked>
+                                <span class="checkmark"></span> Auto-scroll
+                            </label>
+                            <button class="btn-icon" id="btn-clear-terminal" title="Clear View"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </div>
+                    <div class="terminal-body" id="terminal-output">
+                        <div class="terminal-line system-msg">[System] Ready to start scraping...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: Log Files -->
+            <section class="tab-content" id="tab-files">
+                <div class="files-view-container">
+                    <div class="files-sidebar">
+                        <h3>Select Log File</h3>
+                        <button class="file-tab active" data-file="not_uploaded.txt">
+                            <i class="fa-solid fa-file-signature"></i>
+                            <div class="file-tab-info">
+                                <span class="file-name">not_uploaded.txt</span>
+                                <span class="file-desc" id="count-not_uploaded">0 entries</span>
+                            </div>
+                        </button>
+                        <button class="file-tab" data-file="failed.txt">
+                            <i class="fa-solid fa-file-circle-exclamation"></i>
+                            <div class="file-tab-info">
+                                <span class="file-name">failed.txt</span>
+                                <span class="file-desc" id="count-failed">0 entries</span>
+                            </div>
+                        </button>
+                        <button class="file-tab" data-file="no_data.txt">
+                            <i class="fa-solid fa-file-csv"></i>
+                            <div class="file-tab-info">
+                                <span class="file-name">no_data.txt</span>
+                                <span class="file-desc" id="count-no_data">0 entries</span>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="file-viewer-main">
+                        <div class="file-viewer-header">
+                            <h2 id="current-viewing-file">not_uploaded.txt</h2>
+                            <div class="file-actions">
+                                <button class="btn btn-secondary" id="btn-refresh-file">
+                                    <i class="fa-solid fa-rotate"></i> Refresh
+                                </button>
+                                <button class="btn btn-secondary" id="btn-clear-file">
+                                    <i class="fa-solid fa-eraser"></i> Clear File
+                                </button>
+                                <a href="" id="btn-download-file" class="btn btn-primary" download>
+                                    <i class="fa-solid fa-download"></i> Download
+                                </a>
+                            </div>
+                        </div>
+                        <div class="file-content-wrapper">
+                            <pre class="file-content" id="file-content-viewer">Select a file to view its contents.</pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: Settings -->
+            <section class="tab-content" id="tab-settings">
+                <div class="settings-container">
+                    <form id="settings-form" class="settings-form">
+                        <div class="settings-section">
+                            <h3><i class="fa-solid fa-network-wired"></i> General Scraper Configuration</h3>
+                            <div class="form-grid">
+                                <div class="input-group full-width">
+                                    <label for="setting-proxy-url">Mubeng Proxy / IP Rotator URL</label>
+                                    <div class="input-with-info">
+                                        <input type="text" id="setting-proxy-url" placeholder="http://yearning-cherida-soloackerman-185c794c.koyeb.app:8000">
+                                    </div>
+                                    <p class="input-hint">The HTTP proxy URL routed to your Mubeng instance. Leave blank to bypass proxy (for local testing).</p>
+                                </div>
+                                <div class="input-group">
+                                    <label for="setting-min-delay">Minimum Delay (Seconds)</label>
+                                    <input type="number" id="setting-min-delay" min="1" value="30">
+                                </div>
+                                <div class="input-group">
+                                    <label for="setting-max-delay">Maximum Delay (Seconds)</label>
+                                    <input type="number" id="setting-max-delay" min="2" value="60">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-section">
+                            <h3><i class="fa-solid fa-folder-open"></i> Google Drive Storage</h3>
+                            <div class="form-grid">
+                                <div class="input-group full-width">
+                                    <label for="setting-gdrive-folder-id">Target Google Drive Folder ID</label>
+                                    <input type="text" id="setting-gdrive-folder-id" placeholder="1aBcDeFgHiJkLmNoPqRsTuVwXyZ" required>
+                                    <p class="input-hint">The long alphanumeric string at the end of your Google Drive folder's URL.</p>
+                                </div>
+                                <div class="input-group full-width">
+                                    <label for="setting-gdrive-json">Google Service Account JSON Key</label>
+                                    <textarea id="setting-gdrive-json" rows="8" placeholder='{
+  "type": "service_account",
+  "project_id": "your-project-id",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
+  "client_email": "scraper-service-account@...",
+  ...
+}'></textarea>
+                                    <p class="input-hint">Paste your complete Google Cloud Service Account JSON credentials key here. Share your Drive folder with the <strong>client_email</strong> address inside this JSON.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="settings-footer">
+                            <button type="button" class="btn btn-secondary" id="btn-test-drive">
+                                <i class="fa-solid fa-plug"></i> Test Connection
+                            </button>
+                            <span id="test-connection-status" class="test-status"></span>
+                            
+                            <button type="submit" class="btn btn-primary" id="btn-save-settings">
+                                <i class="fa-solid fa-floppy-disk"></i> Save Settings
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

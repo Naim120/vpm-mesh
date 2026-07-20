@@ -1,0 +1,31 @@
+# Python & Virtual Environments
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# State & Credentials (CRITICAL TO PREVENT LEAKS)
+state.json
+credentials.json
+client_secret*.json
+*.pem
+*.key
+
+# Log & Output files
+failed.txt
+not_uploaded.txt
+no_data.txt
+*.log
+
+# Environment & IDE
+.env
+.env.local
+.vscode/
+.idea/
+.DS_Store
+
+# Docker & Temp
+.docker/
+*.tmp
