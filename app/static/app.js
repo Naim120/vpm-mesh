@@ -181,9 +181,7 @@ btnClearTerminal.addEventListener("click", () => {
 });
 
 /* Settings APIs */
-settingsForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    
+async function saveSettingsHelper() {
     const proxyUrl = settingProxyUrl.value.trim() || null;
     const minDelay = parseInt(settingMinDelay.value);
     const maxDelay = parseInt(settingMaxDelay.value);
@@ -192,7 +190,7 @@ settingsForm.addEventListener("submit", async (e) => {
     
     if (minDelay < 1 || maxDelay < 2 || minDelay >= maxDelay) {
         showToast("Invalid delay range. Min delay must be less than max delay.", true);
-        return;
+        return false;
     }
     
     let gDriveJson = null;
@@ -200,8 +198,8 @@ settingsForm.addEventListener("submit", async (e) => {
         try {
             gDriveJson = JSON.parse(gDriveJsonText);
         } catch (err) {
-            showToast("Service Account JSON is not valid JSON.", true);
-            return;
+            showToast("Google Credentials JSON is not valid JSON.", true);
+            return false;
         }
     }
     
@@ -221,19 +219,38 @@ settingsForm.addEventListener("submit", async (e) => {
         if (res.ok) {
             showToast("Settings saved and updated successfully.");
             pollStatus(); // Refresh config display
+            return true;
         } else {
             const err = await res.json();
             showToast(`Failed to save settings: ${err.detail}`, true);
+            return false;
         }
     } catch (err) {
         showToast(`Error: ${err.message}`, true);
+        return false;
     }
+}
+
+settingsForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await saveSettingsHelper();
 });
 
 btnTestDrive.addEventListener("click", async () => {
-    testConnectionStatus.textContent = "Testing connection...";
+    testConnectionStatus.textContent = "Saving and testing connection...";
     testConnectionStatus.className = "test-status";
     
+    // Automatically submit & save settings first
+    const gDriveJsonText = settingGDriveJson.value.trim();
+    if (gDriveJsonText !== "" || settingGDriveFolderId.value.trim() !== "") {
+        const saved = await saveSettingsHelper();
+        if (!saved) {
+            testConnectionStatus.textContent = "Failed: Could not save credentials.";
+            testConnectionStatus.className = "test-status error";
+            return;
+        }
+    }
+
     try {
         const res = await fetch("/api/test-drive", { method: "POST" });
         const data = await res.json();

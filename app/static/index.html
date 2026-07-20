@@ -256,16 +256,13 @@
                                     <p class="input-hint">The long alphanumeric string at the end of your Google Drive folder's URL.</p>
                                 </div>
                                 <div class="input-group full-width">
-                                    <label for="setting-gdrive-json">Google Service Account JSON Key</label>
+                                    <label for="setting-gdrive-json">Google OAuth / Service Account Credentials JSON</label>
                                     <textarea id="setting-gdrive-json" rows="8" placeholder='{
-  "type": "service_account",
-  "project_id": "your-project-id",
-  "private_key_id": "...",
-  "private_key": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n",
-  "client_email": "scraper-service-account@...",
-  ...
+  "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "client_secret": "YOUR_CLIENT_SECRET",
+  "refresh_token": "YOUR_REFRESH_TOKEN"
 }'></textarea>
-                                    <p class="input-hint">Paste your complete Google Cloud Service Account JSON credentials key here. Share your Drive folder with the <strong>client_email</strong> address inside this JSON.</p>
+                                    <p class="input-hint">Paste your Google OAuth 2.0 Credentials JSON here (containing <strong>client_id</strong>, <strong>client_secret</strong>, and <strong>refresh_token</strong> for your 5TB personal account), or a standard Service Account JSON.</p>
                                 </div>
                             </div>
                         </div>

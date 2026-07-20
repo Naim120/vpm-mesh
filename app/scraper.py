@@ -134,7 +134,14 @@ class ScraperWorker:
 
     def test_drive_connection(self) -> dict:
         if not self.drive_service:
-            return {"success": False, "error": "Google Drive Service Account not configured."}
+            sa = self.state.get("gdrive_service_account")
+            if sa:
+                try:
+                    self.drive_service = DriveService(sa)
+                except Exception as e:
+                    return {"success": False, "error": f"Failed to authenticate credentials: {e}"}
+            else:
+                return {"success": False, "error": "Google Drive credentials not configured. Please paste your OAuth JSON (or Service Account JSON) in Settings."}
         
         folder_id = self.state.get("gdrive_folder_id")
         if not folder_id:
