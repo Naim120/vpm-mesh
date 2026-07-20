@@ -485,11 +485,24 @@ class ScraperWorker:
                 
                 self.log(f"Downloaded '{filename}' ({len(file_content)} bytes). Uploading to Google Drive...")
                 
+                # Determine MIME type from filename or response headers
+                import mimetypes
+                guessed_type, _ = mimetypes.guess_type(filename)
+                if not guessed_type:
+                    if filename.lower().endswith(('.jpg', '.jpeg')):
+                        guessed_type = "image/jpeg"
+                    elif filename.lower().endswith('.png'):
+                        guessed_type = "image/png"
+                    elif filename.lower().endswith('.pdf'):
+                        guessed_type = "application/pdf"
+                    else:
+                        guessed_type = response.headers.get("Content-Type", "application/octet-stream").split(";")[0]
+
                 # Upload to drive
                 file_id = self.drive_service.upload_file(
                     file_content=file_content,
                     filename=filename,
-                    mime_type="application/pdf",
+                    mime_type=guessed_type,
                     folder_id=folder_id
                 )
                 
