@@ -29,7 +29,7 @@ class SupabaseService:
         if not self.enabled:
             return False
             
-        endpoint = f"{self.url}/rest/v1/scraper_sessions"
+        endpoint = f"{self.url}/rest/v1/scraper_sessions?on_conflict=session_name"
         payload = {
             "session_name": session_name,
             "start_num": start_num,
