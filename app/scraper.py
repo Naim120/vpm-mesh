@@ -24,6 +24,9 @@ class ScraperWorker:
         # Load initial state or set defaults
         self.state = self.load_state()
         
+        # Restore recent logs if available
+        self.logs = self.state.get("recent_logs", [])
+        
         # Initialize Drive Service
         self.drive_service = None
         self.init_drive_service()
@@ -75,6 +78,22 @@ class ScraperWorker:
             except Exception as e:
                 logger.error(f"Error loading state.json: {e}")
         
+        # Override with Environment Variables if present (ensures credentials survive container restarts/sleeps on Koyeb)
+        env_folder_id = os.getenv("GDRIVE_FOLDER_ID")
+        if env_folder_id:
+            default_state["gdrive_folder_id"] = env_folder_id
+
+        env_creds_json = os.getenv("GDRIVE_CREDENTIALS_JSON")
+        if env_creds_json:
+            try:
+                default_state["gdrive_service_account"] = json.loads(env_creds_json)
+            except Exception as e:
+                logger.error(f"Error parsing GDRIVE_CREDENTIALS_JSON env var: {e}")
+
+        env_proxy = os.getenv("PROXY_URL")
+        if env_proxy:
+            default_state["proxy_url"] = env_proxy
+
         return default_state
 
     def save_state(self):
@@ -93,6 +112,8 @@ class ScraperWorker:
             self.logs.append(log_entry)
             if len(self.logs) > 300:
                 self.logs.pop(0)
+            self.state["recent_logs"] = self.logs
+        self.save_state()
 
     def get_status(self) -> dict:
         with self.lock:

@@ -49,6 +49,14 @@ async def get_index():
         </html>
     """)
 
+@app.get("/api/ping")
+@app.get("/health")
+def ping_health():
+    return {
+        "status": "ok",
+        "scraper_status": worker.state.get("status", "unknown")
+    }
+
 @app.get("/api/status")
 def get_status():
     return worker.get_status()
