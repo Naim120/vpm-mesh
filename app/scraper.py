@@ -9,6 +9,7 @@ import http.client
 import urllib.parse
 import httpx
 from app.drive_service import DriveService
+from app.supabase_service import SupabaseService
 
 logger = logging.getLogger("scraper")
 
@@ -20,6 +21,7 @@ class ScraperWorker:
         self.thread = None
         self.stop_event = threading.Event()
         self.logs = []
+        self.supabase = SupabaseService()
         
         # Load initial state or set defaults
         self.state = self.load_state()
@@ -44,6 +46,7 @@ class ScraperWorker:
 
     def load_state(self) -> dict:
         default_state = {
+            "session_name": "default",
             "start_num": 130623,
             "end_num": 130700,
             "current_num": 130623,
@@ -78,7 +81,7 @@ class ScraperWorker:
             except Exception as e:
                 logger.error(f"Error loading state.json: {e}")
         
-        # Override with Environment Variables if present (ensures credentials survive container restarts/sleeps on Koyeb)
+        # Override with Environment Variables if present
         env_folder_id = os.getenv("GDRIVE_FOLDER_ID")
         if env_folder_id:
             default_state["gdrive_folder_id"] = env_folder_id
@@ -94,6 +97,20 @@ class ScraperWorker:
         if env_proxy:
             default_state["proxy_url"] = env_proxy
 
+        # Try restoring latest active session from Supabase if configured
+        if hasattr(self, 'supabase') and self.supabase.enabled:
+            latest = self.supabase.get_latest_session()
+            if latest:
+                logger.info(f"Restored latest session '{latest.get('session_name')}' from Supabase.")
+                default_state["session_name"] = latest.get("session_name", default_state["session_name"])
+                default_state["start_num"] = latest.get("start_num", default_state["start_num"])
+                default_state["end_num"] = latest.get("end_num", default_state["end_num"])
+                default_state["current_num"] = latest.get("current_num", default_state["current_num"])
+                default_state["status"] = latest.get("status", default_state["status"])
+                default_state["error_message"] = latest.get("error_message", "")
+                if isinstance(latest.get("stats"), dict):
+                    default_state["stats"].update(latest["stats"])
+
         return default_state
 
     def save_state(self):
@@ -103,6 +120,23 @@ class ScraperWorker:
                     json.dump(self.state, f, indent=2)
             except Exception as e:
                 logger.error(f"Error saving state.json: {e}")
+                
+            # Upsert state to Supabase asynchronously / thread-safe
+            if hasattr(self, 'supabase') and self.supabase.enabled:
+                session_name = self.state.get("session_name") or f"{self.state['start_num']}-{self.state['end_num']}"
+                threading.Thread(
+                    target=self.supabase.upsert_session,
+                    args=(
+                        session_name,
+                        self.state["start_num"],
+                        self.state["end_num"],
+                        self.state["current_num"],
+                        self.state["status"],
+                        self.state["stats"],
+                        self.state.get("error_message", "")
+                    ),
+                    daemon=True
+                ).start()
 
     def log(self, message: str):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -179,6 +213,9 @@ class ScraperWorker:
             if start_num is not None:
                 self.state["start_num"] = start_num
                 self.state["current_num"] = start_num
+                if end_num is not None:
+                    self.state["end_num"] = end_num
+                self.state["session_name"] = f"{self.state['start_num']}-{self.state['end_num']}"
                 # Reset statistics for a fresh start
                 self.state["stats"] = {
                     "total_requests": 0,
