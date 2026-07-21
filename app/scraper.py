@@ -242,8 +242,11 @@ class ScraperWorker:
 
             # Check credentials and folder before starting
             if not self.drive_service:
+                self.init_drive_service()
+
+            if not self.drive_service:
                 self.state["status"] = "error"
-                self.state["error_message"] = "Google Drive credentials not set."
+                self.state["error_message"] = "Google Drive credentials not set. Please configure OAuth or Service Account JSON in Settings."
                 self.log("Cannot start scraper: Google Drive credentials not set.")
                 self.save_state()
                 return

@@ -90,17 +90,9 @@ def get_status():
 def check_session(req: CheckSessionRequest):
     session_name = f"{req.start_num}-{req.end_num}"
     
-    session = worker.supabase.get_session_by_name(session_name)
-    if not session:
-        if worker.state.get("session_name") == session_name:
-            session = {
-                "session_name": session_name,
-                "start_num": worker.state.get("start_num"),
-                "end_num": worker.state.get("end_num"),
-                "current_num": worker.state.get("current_num"),
-                "status": worker.state.get("status"),
-                "stats": worker.state.get("stats")
-            }
+    session = None
+    if hasattr(worker, "supabase") and worker.supabase.enabled:
+        session = worker.supabase.get_session_by_name(session_name)
 
     if session:
         status = session.get("status", "not_complete")
