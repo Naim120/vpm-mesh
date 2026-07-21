@@ -109,6 +109,76 @@ function switchTab(tab) {
     }
 }
 
+function openSessionModal(sessionData, onResume, onStartFresh) {
+    const modal = document.getElementById("session-modal");
+    const modalTitle = document.getElementById("modal-title");
+    const modalDesc = document.getElementById("modal-desc");
+    const modalBadge = document.getElementById("modal-status-badge");
+    const modalActions = document.getElementById("modal-actions");
+
+    modal.classList.remove("hidden");
+    modalActions.innerHTML = "";
+
+    const isCompleted = sessionData.status === "completed" || sessionData.status === "complete";
+
+    if (isCompleted) {
+        modalTitle.innerHTML = `<i class="fa-solid fa-circle-check" style="color:var(--success)"></i> Session Already Completed`;
+        modalDesc.innerHTML = `Session <strong>${sessionData.session_name}</strong> already exists and is <strong>COMPLETED</strong> up to number <strong>${sessionData.end_num}</strong>.`;
+        modalBadge.className = "modal-badge completed";
+        modalBadge.textContent = "STATUS: COMPLETED";
+
+        // Option 1: Start Fresh
+        const btnFresh = document.createElement("button");
+        btnFresh.className = "btn btn-primary";
+        btnFresh.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Start Fresh from ${sessionData.start_num}`;
+        btnFresh.onclick = () => {
+            modal.classList.add("hidden");
+            onStartFresh();
+        };
+        modalActions.appendChild(btnFresh);
+
+        // Option 2: Cancel
+        const btnCancel = document.createElement("button");
+        btnCancel.className = "btn btn-secondary";
+        btnCancel.innerHTML = `<i class="fa-solid fa-xmark"></i> Cancel`;
+        btnCancel.onclick = () => modal.classList.add("hidden");
+        modalActions.appendChild(btnCancel);
+    } else {
+        modalTitle.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> Existing Session Found`;
+        modalDesc.innerHTML = `Session <strong>${sessionData.session_name}</strong> already exists and paused at document <strong>#${sessionData.current_num}</strong> of <strong>${sessionData.end_num}</strong>.`;
+        modalBadge.className = "modal-badge not_complete";
+        modalBadge.textContent = "STATUS: NOT COMPLETED";
+
+        // Option 1: Resume
+        const btnResume = document.createElement("button");
+        btnResume.className = "btn btn-primary";
+        btnResume.innerHTML = `<i class="fa-solid fa-play"></i> Resume from Document #${sessionData.current_num}`;
+        btnResume.onclick = () => {
+            modal.classList.add("hidden");
+            onResume();
+        };
+        modalActions.appendChild(btnResume);
+
+        // Option 2: Start Fresh
+        const btnFresh = document.createElement("button");
+        btnFresh.className = "btn btn-secondary";
+        btnFresh.innerHTML = `<i class="fa-solid fa-rotate-right"></i> Start Fresh from ${sessionData.start_num}`;
+        btnFresh.onclick = () => {
+            modal.classList.add("hidden");
+            onStartFresh();
+        };
+        modalActions.appendChild(btnFresh);
+
+        // Option 3: Cancel
+        const btnCancel = document.createElement("button");
+        btnCancel.className = "btn btn-secondary";
+        btnCancel.style.opacity = "0.7";
+        btnCancel.innerHTML = `<i class="fa-solid fa-xmark"></i> Cancel`;
+        btnCancel.onclick = () => modal.classList.add("hidden");
+        modalActions.appendChild(btnCancel);
+    }
+}
+
 /* Scraper Control APIs */
 btnStart.addEventListener("click", async () => {
     const startNum = parseInt(startNumberInput.value);
@@ -123,25 +193,48 @@ btnStart.addEventListener("click", async () => {
         showToast("Start number cannot be greater than end number.", true);
         return;
     }
-    
+
     try {
-        const res = await fetch("/api/start", {
+        const checkRes = await fetch("/api/check-session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ start_num: startNum, end_num: endNum })
         });
-        
-        if (res.ok) {
-            showToast("Scraping worker started successfully.");
-            terminalOutput.innerHTML = '<div class="terminal-line system-msg">[System] Scraper started.</div>';
-            lastLogCount = 0;
-            pollStatus();
+        const checkData = await checkRes.json();
+
+        const launchScraper = async (mode) => {
+            try {
+                const res = await fetch("/api/start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ start_num: startNum, end_num: endNum, mode: mode })
+                });
+                
+                if (res.ok) {
+                    showToast(`Scraper started (${mode === 'resume' ? 'Resumed' : 'Fresh Start'}).`);
+                    terminalOutput.innerHTML = `<div class="terminal-line system-msg">[System] Scraper started (${mode}).</div>`;
+                    lastLogCount = 0;
+                    pollStatus();
+                } else {
+                    const err = await res.json();
+                    showToast(`Failed to start: ${err.detail}`, true);
+                }
+            } catch (e) {
+                showToast(`Error: ${e.message}`, true);
+            }
+        };
+
+        if (checkData.exists) {
+            openSessionModal(
+                checkData,
+                () => launchScraper("resume"),
+                () => launchScraper("start_fresh")
+            );
         } else {
-            const err = await res.json();
-            showToast(`Failed to start: ${err.detail}`, true);
+            launchScraper("start_fresh");
         }
     } catch (e) {
-        showToast(`Error: ${e.message}`, true);
+        showToast(`Error checking session: ${e.message}`, true);
     }
 });
 

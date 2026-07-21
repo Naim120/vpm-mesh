@@ -204,30 +204,41 @@ class ScraperWorker:
             
         return self.drive_service.test_connection(folder_id)
 
-    def start(self, start_num: int = None, end_num: int = None):
+    def start(self, start_num: int = None, end_num: int = None, mode: str = "start_fresh"):
         with self.lock:
-            if self.state["status"] == "running":
+            if self.state.get("status") == "running":
                 self.log("Scraper is already running.")
                 return
             
             if start_num is not None:
                 self.state["start_num"] = start_num
-                self.state["current_num"] = start_num
                 if end_num is not None:
                     self.state["end_num"] = end_num
-                self.state["session_name"] = f"{self.state['start_num']}-{self.state['end_num']}"
-                # Reset statistics for a fresh start
-                self.state["stats"] = {
-                    "total_requests": 0,
-                    "success_count": 0,
-                    "failed_count": 0,
-                    "no_data_count": 0,
-                    "files_downloaded": 0,
-                    "files_uploaded": 0,
-                    "not_uploaded_count": 0
-                }
-            if end_num is not None:
-                self.state["end_num"] = end_num
+                
+                session_name = f"{self.state['start_num']}-{self.state['end_num']}"
+                self.state["session_name"] = session_name
+                
+                existing = None
+                if hasattr(self, 'supabase') and self.supabase.enabled:
+                    existing = self.supabase.get_session_by_name(session_name)
+
+                if mode == "resume" and existing:
+                    self.state["current_num"] = existing.get("current_num", start_num)
+                    if isinstance(existing.get("stats"), dict):
+                        self.state["stats"].update(existing["stats"])
+                    self.log(f"Resuming session '{session_name}' from item #{self.state['current_num']}")
+                else:
+                    self.state["current_num"] = start_num
+                    self.state["stats"] = {
+                        "total_requests": 0,
+                        "success_count": 0,
+                        "failed_count": 0,
+                        "no_data_count": 0,
+                        "files_downloaded": 0,
+                        "files_uploaded": 0,
+                        "not_uploaded_count": 0
+                    }
+                    self.log(f"Starting fresh session '{session_name}' from item #{start_num}")
 
             # Check credentials and folder before starting
             if not self.drive_service:

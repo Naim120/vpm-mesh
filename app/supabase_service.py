@@ -75,4 +75,25 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error fetching latest session from Supabase: {e}")
             
+    def get_session_by_name(self, session_name: str) -> dict:
+        if not self.enabled:
+            return None
+            
+        endpoint = f"{self.url}/rest/v1/scraper_sessions?session_name=eq.{session_name}&limit=1"
+        headers = {
+            "apikey": self.key,
+            "Authorization": f"Bearer {self.key}",
+            "Accept": "application/json"
+        }
+        
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                res = client.get(endpoint, headers=headers)
+                if res.status_code == 200:
+                    data = res.json()
+                    if isinstance(data, list) and len(data) > 0:
+                        return data[0]
+        except Exception as e:
+            logger.error(f"Error fetching session '{session_name}' from Supabase: {e}")
+            
         return None

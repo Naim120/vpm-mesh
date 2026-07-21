@@ -283,6 +283,22 @@
         </main>
     </div>
 
+    <!-- Session Conflict Modal -->
+    <div id="session-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-title" id="modal-title">
+                <i class="fa-solid fa-triangle-exclamation" style="color:var(--warning)"></i> Session Already Exists
+            </div>
+            <div class="modal-body">
+                <p id="modal-desc">This session already exists in the system database.</p>
+                <div id="modal-status-badge" class="modal-badge not_complete">NOT COMPLETED</div>
+            </div>
+            <div class="modal-actions" id="modal-actions">
+                <!-- Action buttons will be injected dynamically -->
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
     <div id="toast" class="toast hidden"></div>
 

@@ -22,9 +22,14 @@ os.makedirs("app/static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Pydantic Schemas
+class CheckSessionRequest(BaseModel):
+    start_num: int
+    end_num: int
+
 class StartRequest(BaseModel):
     start_num: int
     end_num: int
+    mode: Optional[str] = "start_fresh" # "start_fresh" or "resume"
 
 class SettingsRequest(BaseModel):
     proxy_url: Optional[str] = None
@@ -69,10 +74,45 @@ def ping_health():
 def get_status():
     return worker.get_status()
 
+@app.post("/api/check-session")
+def check_session(req: CheckSessionRequest):
+    session_name = f"{req.start_num}-{req.end_num}"
+    
+    session = worker.supabase.get_session_by_name(session_name)
+    if not session:
+        if worker.state.get("session_name") == session_name:
+            session = {
+                "session_name": session_name,
+                "start_num": worker.state.get("start_num"),
+                "end_num": worker.state.get("end_num"),
+                "current_num": worker.state.get("current_num"),
+                "status": worker.state.get("status"),
+                "stats": worker.state.get("stats")
+            }
+
+    if session:
+        status = session.get("status", "not_complete")
+        current_num = session.get("current_num", req.start_num)
+        end_num = session.get("end_num", req.end_num)
+        
+        is_completed = (status == "completed" or status == "complete" or current_num > end_num)
+        
+        return {
+            "exists": True,
+            "session_name": session_name,
+            "status": "completed" if is_completed else "not_complete",
+            "current_num": current_num,
+            "start_num": session.get("start_num", req.start_num),
+            "end_num": end_num,
+            "stats": session.get("stats", {})
+        }
+        
+    return {"exists": False, "session_name": session_name}
+
 @app.post("/api/start")
 def start_scraper(req: StartRequest):
     try:
-        worker.start(start_num=req.start_num, end_num=req.end_num)
+        worker.start(start_num=req.start_num, end_num=req.end_num, mode=req.mode)
         return {"success": True}
     except Exception as e:
         logger.error(f"Error starting scraper: {e}")
