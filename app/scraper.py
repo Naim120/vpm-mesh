@@ -115,28 +115,40 @@ class ScraperWorker:
 
     def save_state(self):
         with self.lock:
+            state_copy = {
+                "start_num": self.state.get("start_num", 0),
+                "end_num": self.state.get("end_num", 0),
+                "current_num": self.state.get("current_num", 0),
+                "session_name": self.state.get("session_name", ""),
+                "status": self.state.get("status", "idle"),
+                "error_message": self.state.get("error_message", ""),
+                "stats": dict(self.state.get("stats", {})),
+                "gdrive_folder_id": self.state.get("gdrive_folder_id", ""),
+                "min_delay": self.state.get("min_delay", 30),
+                "max_delay": self.state.get("max_delay", 60),
+                "proxy_url": self.state.get("proxy_url", "")
+            }
+
+        def _async_save():
             try:
                 with open(STATE_FILE, "w") as f:
-                    json.dump(self.state, f, indent=2)
+                    json.dump(state_copy, f, indent=2)
             except Exception as e:
                 logger.error(f"Error saving state.json: {e}")
-                
-            # Upsert state to Supabase asynchronously / thread-safe
+
             if hasattr(self, 'supabase') and self.supabase.enabled:
-                session_name = self.state.get("session_name") or f"{self.state['start_num']}-{self.state['end_num']}"
-                threading.Thread(
-                    target=self.supabase.upsert_session,
-                    args=(
-                        session_name,
-                        self.state["start_num"],
-                        self.state["end_num"],
-                        self.state["current_num"],
-                        self.state["status"],
-                        self.state["stats"],
-                        self.state.get("error_message", "")
-                    ),
-                    daemon=True
-                ).start()
+                s_name = state_copy["session_name"] or f"{state_copy['start_num']}-{state_copy['end_num']}"
+                self.supabase.upsert_session(
+                    session_name=s_name,
+                    start_num=state_copy["start_num"],
+                    end_num=state_copy["end_num"],
+                    current_num=state_copy["current_num"],
+                    status=state_copy["status"],
+                    stats=state_copy["stats"],
+                    error_message=state_copy["error_message"]
+                )
+
+        threading.Thread(target=_async_save, daemon=True).start()
 
     def log(self, message: str):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -163,7 +175,7 @@ class ScraperWorker:
                 "status": self.state["status"],
                 "error_message": self.state.get("error_message", ""),
                 "stats": self.state["stats"],
-                "logs": self.logs
+                "logs": list(self.logs)
             }
 
     def update_settings(self, settings: dict):
@@ -179,13 +191,13 @@ class ScraperWorker:
                     try:
                         self.drive_service = DriveService(sa)
                     except Exception as e:
-                        self.log(f"Failed to initialize Drive service: {e}")
+                        logger.error(f"Failed to initialize Drive service: {e}")
                         self.drive_service = None
                 else:
                     self.drive_service = None
                     
         self.save_state()
-        self.log("Settings updated successfully.")
+        logger.info("Settings updated successfully.")
 
     def test_drive_connection(self) -> dict:
         if not self.drive_service:
@@ -205,9 +217,18 @@ class ScraperWorker:
         return self.drive_service.test_connection(folder_id)
 
     def start(self, start_num: int = None, end_num: int = None, mode: str = "start_fresh"):
+        existing = None
+        if start_num is not None and end_num is not None:
+            s_name = f"{start_num}-{end_num}"
+            if hasattr(self, 'supabase') and self.supabase.enabled:
+                try:
+                    existing = self.supabase.get_session_by_name(s_name)
+                except Exception as e:
+                    logger.error(f"Error checking session for start: {e}")
+
         with self.lock:
             if self.state.get("status") == "running":
-                self.log("Scraper is already running.")
+                logger.info("Scraper is already running.")
                 return
             
             if start_num is not None:
@@ -217,16 +238,12 @@ class ScraperWorker:
                 
                 session_name = f"{self.state['start_num']}-{self.state['end_num']}"
                 self.state["session_name"] = session_name
-                
-                existing = None
-                if hasattr(self, 'supabase') and self.supabase.enabled:
-                    existing = self.supabase.get_session_by_name(session_name)
 
                 if mode == "resume" and existing:
                     self.state["current_num"] = existing.get("current_num", start_num)
                     if isinstance(existing.get("stats"), dict):
                         self.state["stats"].update(existing["stats"])
-                    self.log(f"Resuming session '{session_name}' from item #{self.state['current_num']}")
+                    logger.info(f"Resuming session '{session_name}' from item #{self.state['current_num']}")
                 else:
                     self.state["current_num"] = start_num
                     self.state["stats"] = {
@@ -238,16 +255,15 @@ class ScraperWorker:
                         "files_uploaded": 0,
                         "not_uploaded_count": 0
                     }
-                    self.log(f"Starting fresh session '{session_name}' from item #{start_num}")
+                    logger.info(f"Starting fresh session '{session_name}' from item #{start_num}")
 
-            # Check credentials and folder before starting
             if not self.drive_service:
                 self.init_drive_service()
 
             if not self.drive_service:
                 self.state["status"] = "error"
                 self.state["error_message"] = "Google Drive credentials not set. Please configure OAuth or Service Account JSON in Settings."
-                self.log("Cannot start scraper: Google Drive credentials not set.")
+                logger.error("Cannot start scraper: Google Drive credentials not set.")
                 self.save_state()
                 return
             
@@ -255,7 +271,7 @@ class ScraperWorker:
             if not folder_id:
                 self.state["status"] = "error"
                 self.state["error_message"] = "Google Drive Folder ID not set."
-                self.log("Cannot start scraper: Google Drive Folder ID not set.")
+                logger.error("Cannot start scraper: Google Drive Folder ID not set.")
                 self.save_state()
                 return
 
@@ -266,7 +282,7 @@ class ScraperWorker:
             self.thread.start()
             
         self.save_state()
-        self.log(f"Started scraper range: {self.state['start_num']} to {self.state['end_num']}")
+        logger.info(f"Started scraper range: {self.state['start_num']} to {self.state['end_num']}")
 
     def resume(self):
         with self.lock:

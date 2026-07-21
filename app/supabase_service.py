@@ -42,7 +42,7 @@ class SupabaseService:
         }
         
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=3.0) as client:
                 res = client.post(endpoint, headers=self._get_headers(), json=payload)
                 if res.status_code in [200, 201]:
                     logger.debug(f"Successfully upserted session '{session_name}' to Supabase.")
@@ -66,7 +66,7 @@ class SupabaseService:
         }
         
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=3.0) as client:
                 res = client.get(endpoint, headers=headers)
                 if res.status_code == 200:
                     data = res.json()
@@ -87,7 +87,7 @@ class SupabaseService:
         }
         
         try:
-            with httpx.Client(timeout=10.0) as client:
+            with httpx.Client(timeout=3.0) as client:
                 res = client.get(endpoint, headers=headers)
                 if res.status_code == 200:
                     data = res.json()
