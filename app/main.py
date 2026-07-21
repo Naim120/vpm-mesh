@@ -62,12 +62,23 @@ def ping_health():
     except Exception as e:
         logger.error(f"Error logging ping: {e}")
         
+    status = "idle"
+    current_num = 0
+    files_uploaded = 0
+    
+    if hasattr(worker, "state") and isinstance(worker.state, dict):
+        status = str(worker.state.get("status", "idle"))
+        current_num = int(worker.state.get("current_num", 0))
+        stats = worker.state.get("stats", {})
+        if isinstance(stats, dict):
+            files_uploaded = int(stats.get("files_uploaded", 0))
+
     return {
         "status": "ok",
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "scraper_status": getattr(worker, "state", {}).get("status", "unknown"),
-        "current_num": getattr(worker, "state", {}).get("current_num", 0),
-        "files_uploaded": getattr(worker, "state", {}).get("stats", {}).get("files_uploaded", 0)
+        "scraper_status": status,
+        "current_num": current_num,
+        "files_uploaded": files_uploaded
     }
 
 @app.get("/api/status")
