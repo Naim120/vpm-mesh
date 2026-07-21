@@ -51,10 +51,15 @@ async def get_index():
 
 @app.get("/api/ping")
 @app.get("/health")
-def ping_health():
+def ping_health(request: Request):
+    client_ip = request.client.host if request.client else "Cloudflare"
+    worker.log(f"[Keep-Alive Ping] Received keep-alive request from {client_ip}")
     return {
         "status": "ok",
-        "scraper_status": worker.state.get("status", "unknown")
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "scraper_status": worker.state.get("status", "unknown"),
+        "current_num": worker.state.get("current_num", 0),
+        "files_uploaded": worker.state.get("stats", {}).get("files_uploaded", 0)
     }
 
 @app.get("/api/status")
